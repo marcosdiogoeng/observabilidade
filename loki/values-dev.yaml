@@ -1,0 +1,79 @@
+namespace: observability
+
+app:
+  replicas: 1
+
+image:
+  repository: grafana/loki
+  tag: 3.5
+
+service:
+  type: ClusterIP
+  ports:
+    grpc:
+      port: 9095
+      targetPort: 9095
+    http:
+      port: 3100
+      targetPort: 3100
+
+resources:
+  requests:
+    memory: "512Mi"
+    cpu: "250m"
+  limits:
+    memory: "1Gi"
+    cpu: "500m"
+
+volumes:
+  name: loki-data
+  mountpath: /tmp/loki
+
+persistence:
+  name: loki-pvc
+  enabled: true
+  size: 20Gi
+  storageClass: gp3 
+  accessModes:
+    - ReadWriteOnce
+
+configmap:
+  name: loki-config
+  mountpath: /etc/loki
+  config: |
+    auth_enabled: false
+
+    server:
+      http_listen_port: 3100
+
+    common:
+      ring:
+        instance_addr: 0.0.0.0
+        kvstore:
+          store: inmemory
+      replication_factor: 1
+      path_prefix: /tmp/loki
+
+    schema_config:
+      configs:
+      - from: 2020-05-15
+        store: tsdb
+        object_store: filesystem
+        schema: v13
+        index:
+          prefix: index_
+          period: 24h
+
+    storage_config:
+      tsdb_shipper:
+        active_index_directory: /tmp/loki/index
+        cache_location: /tmp/loki/index_cache
+      filesystem:
+        directory: /tmp/loki/chunks
+
+    limits_config:
+      allow_structured_metadata: true
+      volume_enabled: true
+
+    pattern_ingester:
+      enabled: true

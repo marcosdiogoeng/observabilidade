@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: {{ .Release.Name }}
+  name: {{ .Release.Name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.app.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+    spec:
+      securityContext:
+        fsGroup: 10001
+      containers:
+      - name: {{ .Release.Name }}
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        args:
+         - "-config.file=/etc/loki/config.yaml"
+        ports:
+          - name: grpc
+            containerPort: {{ .Values.service.ports.grpc.port }}
+            protocol: TCP
+          - name: http
+            containerPort: {{ .Values.service.ports.http.port }}
+            protocol: TCP
+        securityContext:
+          runAsUser: 10001
+          runAsGroup: 10001
+          allowPrivilegeEscalation: false
+        resources:
+          requests:
+            memory: {{ .Values.resources.requests.memory }}
+            cpu: {{ .Values.resources.requests.cpu }}
+          limits:
+            memory: {{ .Values.resources.limits.memory }}
+            cpu: {{ .Values.resources.limits.cpu }}
+        volumeMounts:
+          - name: {{ .Values.configmap.name }}
+            mountPath: {{ .Values.configmap.mountpath }}
+          - name: {{ .Values.volumes.name }}
+            mountPath: {{ .Values.volumes.mountpath }}
+      volumes:
+        - name: {{ .Values.configmap.name }}
+          configMap:
+            name: {{ .Values.configmap.name }}
+        - name: {{ .Values.volumes.name }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.name }}
