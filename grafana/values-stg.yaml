@@ -1,0 +1,88 @@
+namespace: observability
+
+app:
+  replicas: 1
+
+image:
+  repository: grafana/grafana
+  tag: 11.6.1
+
+service:
+  type: ClusterIP
+  ports:
+    http:
+      port: 80
+      targetPort: 3000
+
+resources:
+  requests:
+    memory: "256Mi"
+    cpu: "250m"
+  limits:
+    memory: "500Mi"
+    cpu: "500m"
+
+ingress:
+  enabled: true
+  host: grafana.devlopes.net
+  annotations: {
+    alb.ingress.kubernetes.io/group.name: apps-infra-alb,
+    alb.ingress.kubernetes.io/target-type: ip,
+    alb.ingress.kubernetes.io/scheme: internet-facing,
+    alb.ingress.kubernetes.io/group.order: "2",
+    alb.ingress.kubernetes.io/ssl-redirect: "443",
+    alb.ingress.kubernetes.io/inbound-cidrs: "",
+    alb.ingress.kubernetes.io/success-codes: "200-302",
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:123456789012:certificate/your-certificate-id
+  }
+
+secrets:
+  name: grafana-secrets
+
+volumes:
+  name: grafana-data
+  mountpath: /var/lib/grafana
+
+persistence:
+  name: grafana-pvc
+  enabled: true
+  size: 20Gi
+  storageClass: gp3 
+  accessModes:
+    - ReadWriteOnce
+
+configmap:
+  name: datasources
+  mountpath: /etc/grafana/provisioning/datasources
+  config: |
+    apiVersion: 1
+    datasources:
+      - name: Loki
+        type: loki
+        access: proxy
+        url: http://loki:3100
+
+      - name: Tempo
+        type: tempo
+        access: proxy
+        url: http://tempo:3200
+        orgId: 1
+        basicAuth: false
+        isDefault: false
+        version: 1
+        editable: false
+        apiVersion: 1
+        uid: tempo
+        jsonData:
+          httpMethod: GET
+
+      - name: Prometheus
+        type: prometheus
+        uid: prometheus
+        basicAuth: false
+        isDefault: false
+        version: 1
+        access: proxy
+        url: http://prometheus:9090
+        jsonData:
+          httpMethod: GET
