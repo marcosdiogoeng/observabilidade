@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: {{ .Release.Name }}
+  name: {{ .Release.Name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.app.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  template:
+    metadata:
+      annotations:
+        configmap-reload: "{{ now | unixEpoch }}"
+      labels:
+        app: {{ .Release.Name }}
+    spec:
+      containers:
+      - name: {{ .Release.Name }}
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        args:
+          - "--config=/etc/otel-collector-config.yaml"
+        ports:
+          - containerPort: {{ .Values.service.ports.grpc.port }}
+            name: grpc
+            protocol: TCP
+          - containerPort: {{ .Values.service.ports.http.port }}
+            name: http
+            protocol: TCP
+          - containerPort: {{ .Values.service.ports.metrics.port }}
+            name: metrics
+            protocol: TCP
+          - containerPort: {{ .Values.service.ports.syslog.port }}
+            name: syslog
+            protocol: TCP
+        volumeMounts:
+          - name: {{ .Values.configmap.name }}
+            mountPath: {{ .Values.configmap.mountpath }}
+            subPath: {{ .Values.configmap.subpath }}
+      volumes:
+        - name: {{ .Values.configmap.name }}
+          configMap:
+            name: {{ .Values.configmap.name }}

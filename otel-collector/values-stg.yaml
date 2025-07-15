@@ -1,0 +1,73 @@
+namespace: observability
+
+app:
+  replicas: 1
+
+image:
+  repository: otel/opentelemetry-collector-contrib
+  tag: 0.123.0
+
+service:
+  type: ClusterIP
+  ports:
+    grpc:
+      port: 4317
+      targetPort: 4317
+    http:
+      port: 4318
+      targetPort: 4318
+    metrics:
+      port: 9000
+      targetPort: 9000
+    syslog:
+      port: 54527
+      targetPort: 54527
+
+configmap:
+  name: otel-collector-config
+  mountpath: /etc/otel-collector-config.yaml
+  subpath: otel-collector-config.yaml
+  config: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+
+      syslog:
+        tcp:
+          listen_address: "0.0.0.0:54527"
+        protocol: rfc5424
+        location: UTC
+        operators:
+          - type: copy
+            id: identify-service-by-appname
+            if: '"appname" in attributes'
+            from: attributes.appname
+            to: resource["service.name"]
+
+    exporters:
+      otlphttp:
+        endpoint: http://loki:3100/otlp
+        tls:
+          insecure: true
+      otlp:
+        endpoint: tempo:4317
+        tls:
+          insecure: true
+      prometheus:
+        endpoint: "0.0.0.0:9000"
+
+    service:
+      pipelines:
+        logs:
+          receivers: [ otlp, syslog ]
+          exporters: [ otlphttp ]
+        traces:
+          receivers: [ otlp ]
+          exporters: [ otlp ]
+        metrics:
+          receivers: [ otlp ]
+          exporters: [ prometheus ]
