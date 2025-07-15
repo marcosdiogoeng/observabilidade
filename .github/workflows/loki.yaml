@@ -1,0 +1,38 @@
+name: Deploy Loki
+on:
+  workflow_dispatch:
+    inputs:
+      envs:
+        type: choice
+        description: 'Select the environment to deploy'
+        required: true
+        default: 'dev'
+        options:
+          - dev
+          - stg
+          - prod
+
+jobs:
+  deploy:
+    permissions:
+      id-token: write
+      contents: read
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.envs || 'dev' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Deploy to Kubernetes
+        working-directory: ./loki
+        env:
+          ENV: ${{ github.event.inputs.envs || 'dev' }}
+        run: |
+          aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER_NAME }} --region ${{ secrets.AWS_REGION }}
+          helm upgrade --install loki ./ -n observability -f values-${ENV}.yaml
