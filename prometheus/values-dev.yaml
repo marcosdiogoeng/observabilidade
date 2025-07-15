@@ -1,0 +1,46 @@
+namespace: observability
+
+app:
+  replicas: 1
+
+image:
+  repository: prom/prometheus
+  tag: v3.1.0
+
+service:
+  type: ClusterIP
+  ports:
+    http:
+      port: 9090
+      targetPort: 9090
+
+resources:
+  requests:
+    memory: "500Mi"
+    cpu: "250m"
+  limits:
+    memory: "750Mi"
+    cpu: "500m"
+
+volumes:
+  name: prometheus-data
+  mountpath: /prometheus
+
+configmap:
+  name: prometheus-config
+  mountpath: /etc/prometheus
+  config: |
+    global:
+      scrape_timeout: 10s
+
+    scrape_configs:
+      - job_name: 'otel-collector'
+        static_configs:
+          - targets: ['otel-collector:9000']
+      - job_name: 'tempo'
+        static_configs:
+          - targets: [ 'tempo:3200' ]
+      - job_name: 'kube-state-metrics'
+        static_configs:
+          - targets: ['kube-state-metrics:8080']
+ 

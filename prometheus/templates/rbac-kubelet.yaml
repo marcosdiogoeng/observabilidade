@@ -1,0 +1,27 @@
+# apiVersion: rbac.authorization.k8s.io/v1
+# kind: ClusterRole
+# metadata:
+#   name: {{ .Release.Name }}-kubelet
+# rules:
+#   - apiGroups: [""]
+#     resources:
+#       - nodes
+#       - nodes/proxy
+#       - nodes/metrics
+#     verbs: ["get", "list", "watch"]
+#   - nonResourceURLs: ["/metrics", "/metrics/cadvisor"]
+#     verbs: ["get"]
+
+# ---
+# apiVersion: rbac.authorization.k8s.io/v1
+# kind: ClusterRoleBinding
+# metadata:
+#   name: {{ .Release.Name }}-kubelet
+# roleRef:
+#   kind: ClusterRole
+#   name: {{ .Release.Name }}-kubelet
+#   apiGroup: rbac.authorization.k8s.io
+# subjects:
+#   - kind: ServiceAccount
+#     name: default
+#     namespace: {{ .Values.namespace }}

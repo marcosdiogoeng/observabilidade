@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: {{ .Release.Name }}
+  name: {{ .Release.Name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.app.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  template:
+    metadata:
+      annotations:
+        configmap-reload: "{{ now | unixEpoch }}"
+      labels:
+        app: {{ .Release.Name }}
+    spec:
+      containers:
+      - name: {{ .Release.Name }}
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        args:
+          - '--config.file=/etc/prometheus/prometheus.yml'
+          - '--storage.tsdb.path=/prometheus'
+          - '--web.enable-remote-write-receiver'
+        ports:
+          - containerPort: {{ .Values.service.ports.http.port }}
+        resources:
+          requests:
+            memory: {{ .Values.resources.requests.memory }}
+            cpu: {{ .Values.resources.requests.cpu }}
+          limits:
+            memory: {{ .Values.resources.limits.memory }}
+            cpu: {{ .Values.resources.limits.cpu }}
+        volumeMounts:
+          - name: {{ .Values.configmap.name }}
+            mountPath: {{ .Values.configmap.mountpath }}
+          - name: {{ .Values.volumes.name }}
+            mountPath: {{ .Values.volumes.mountpath }}
+      volumes:
+        - name: {{ .Values.configmap.name }}
+          configMap:
+            name: {{ .Values.configmap.name }}
+        - name: {{ .Values.volumes.name }}
+          emptyDir: {}
