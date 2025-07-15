@@ -1,0 +1,88 @@
+namespace: observability
+
+app:
+  replicas: 1
+
+image:
+  repository: grafana/tempo
+  tag: main-5d9e8a0
+
+service:
+  type: ClusterIP
+  ports:
+    http:
+      port: 3200
+      targetPort: 3200
+    grpc:
+      port: 4317
+      targetPort: 4317
+    http2:
+      port: 4318
+      targetPort: 4318
+
+
+resources:
+  requests:
+    memory: "256Mi"
+    cpu: "250m"
+  limits:
+    memory: "500Mi"
+    cpu: "500m"
+
+volumes:
+  name: tempo-data
+  mountpath: /tmp/tempo
+
+persistence:
+  name: tempo-pvc
+  enabled: true
+  size: 20Gi
+  storageClass: gp3 
+  accessModes:
+    - ReadWriteOnce
+
+configmap:
+  name: tempo-config
+  mountpath: /etc/tempo
+  config: |
+    server:
+      http_listen_port: 3200
+
+    distributor:
+      receivers:
+        otlp:
+          protocols:
+            http:
+              endpoint: 0.0.0.0:4318
+            grpc:
+              endpoint: 0.0.0.0:4317
+
+    ingester:
+      lifecycler:
+        ring:
+          replication_factor: 1
+
+    storage:
+      trace:
+        backend: local
+        wal:
+          path: /var/tempo/wal
+        local:
+          path: /var/tempo/blocks
+
+    metrics_generator:
+      registry:
+        external_labels:
+          source: tempo
+          cluster: ecosystem-dev
+      storage:
+        path: /var/tempo/generator/wal
+        remote_write:
+          - url: http://prometheus:9090/api/v1/write
+            send_exemplars: true
+
+    overrides:
+      defaults:
+        metrics_generator:
+          processors:
+            - service-graphs
